@@ -1,0 +1,74 @@
+prometheus.exporter.azure "example" {
+    subscriptions    = ["xxxx"]
+    resource_type    = "Microsoft.Sql/servers/databases"
+    regions          = [
+        "southeastasia",
+    ]
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metrics          = [
+        "active_queries",
+        "allocated_data_storage",
+        "app_cpu_billed",
+        "app_cpu_billed_ha_replicas",
+        "app_cpu_percent",
+        "app_memory_percent",
+        "availability",
+        "base_blob_size_bytes",
+        "blocked_by_firewall",
+        "cache_hit_percent",
+        "cache_used_percent",
+        "connection_failed",
+        "connection_failed_user_error",
+        "connection_successful",
+        "cpu_limit",
+        "cpu_percent",
+        "cpu_used",
+        "deadlock",
+        "diff_backup_size_bytes",
+        "dtu_consumption_percent",
+        "dtu_limit",
+        "dtu_used",
+        "dwu_consumption_percent",
+        "dwu_limit",
+        "dwu_used",
+        "free_amount_consumed",
+        "free_amount_remaining",
+        "full_backup_size_bytes",
+        "ledger_digest_upload_failed",
+        "ledger_digest_upload_success",
+        "local_tempdb_usage_percent",
+        "log_backup_size_bytes",
+        "log_write_percent",
+        "memory_usage_percent",
+        "physical_data_read_percent",
+        "queued_queries",
+        "sessions_count",
+        "sessions_percent",
+        "snapshot_backup_size_bytes",
+        "storage",
+        "storage_percent",
+        "workers_percent",
+        "xtp_storage_percent",
+    ]
+    included_dimensions = [
+        "ValidatedDriverNameAndVersion",
+        "SslProtocol",
+        "Error",
+    ]
+    timespan         = "PT1M"
+}
+
+// Configure a prometheus.scrape component to send metrics to.
+prometheus.scrape "demo" {
+    targets    = prometheus.exporter.azure.example.targets
+    forward_to = [prometheus.remote_write.demo.receiver]
+}
+
+prometheus.remote_write "demo" {
+    endpoint {
+        // url = "http://localhost:9090/api/prom/push"
+        url = "http://localhost:9090/api/v1/write"
+      //  url = "http://load-balancer:9009/prometheus"
+        //url = "http://localhost:9009/api/v1/write"
+    }
+}

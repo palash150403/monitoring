@@ -1,0 +1,92 @@
+active_directory_authority_url: "https://login.microsoftonline.com/"
+resource_manager_url: "https://management.azure.com/"
+credentials:
+  subscription_id: "<sub-subscription_id>" ## USing Managed Identity
+targets:
+resource_groups:
+
+### Web App Metrics
+  - resource_group: "dev-propel-rg"
+    resource_types:
+      - "Microsoft.Web/sites"
+    metrics:
+      - name: "HttpResponseTime"
+      - name: "Requests"
+      - name: "AverageMemoryWorkingSet"
+      - name: "Http4xx"
+      - name: "Http5xx"
+      - name: "HealthCheckStatus"
+
+### App Service Plan Metrics
+  - resource_group: "dev-propel-rg"
+    resource_types:
+      - "Microsoft.Web/serverfarms"
+    metrics:
+      - name: "CpuPercentage"
+      - name: "MemoryPercentage"
+      - name: "HttpQueueLength"
+
+### SQL Elastic Pool Metrics
+  - resource_group: "dev-propel-rg"
+    resource_types:
+      - "Microsoft.Sql/servers/elasticpools"
+    metrics:
+      - name: "sql_instance_cpu_percent"
+      - name: "sql_instance_memory_percent"
+      - name: "sessions_count"
+      - name: "cpu_percent"
+      - name: "dtu_consumption_percent"
+      - name: "allocated_data_storage_percent"
+      - name: "sqlserver_process_memory_percent"
+      - name: "sqlserver_process_core_percent"
+
+### Iot Hub Metrics
+  - resource_group: "dev-propel-rg"
+    resource_types:
+      - "Microsoft.Devices/IotHubs"
+    metrics:
+      - name: "connectedDeviceCount"
+      - name: "d2c.telemetry.ingress.sendThrottle"
+      - name: "d2c.endpoints.latency.serviceBusQueues"
+      - name: "d2c.endpoints.egress.storage.bytes"
+      - name: "totalDeviceCount"
+      - name: "dailyMessageQuotaUsed"
+      - name: "d2c.telemetry.ingress.success"
+      - name: "deviceDataUsage"
+      - name: "d2c.endpoints.egress.storage.blobs"
+
+### Service Bus Metrics
+  - resource_group: "dev-propel-rg"
+    resource_types:
+      - "Microsoft.ServiceBus/Namespaces"
+    metrics:
+      - name: "ServerErrors"
+      - name: "UserErrors"
+      - name: "Size"
+      - name: "ConnectionsOpened"
+      - name: "IncomingMessages"
+      - name: "Messages"
+      - name: "AbandonMessage"
+      - name: "DeadletteredMessages"
+      - name: "OutgoingMessages"
+
+### Cosmos DB Metrics
+  - resource_group: "dev-propel-rg"
+    resource_types:
+      - "Microsoft.DocumentDB/DatabaseAccounts"
+    metrics:
+      - name: "TotalRequests"
+      - name: "NormalizedRUConsumption"
+      - name: "TotalRequestUnits"
+
+### Stream Analytics Job Metrics
+  - resource_group: "dev-propel-rg"
+    resource_types:
+      - "Microsoft.StreamAnalytics/streamingjobs"
+    metrics:
+      - name: "ResourceUtilization"
+      - name: "Errors"
+      - name: "InputEvents"
+      - name: "OutputWatermarkDelaySeconds"
+      - name: "ProcessCPUUsagePercentage"
+      - name: "InputEventsSourcesBacklogged"

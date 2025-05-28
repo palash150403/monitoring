@@ -1,0 +1,50 @@
+local.file_match "local_files" {
+    path_targets = [{
+               __path__    = "/var/log/palash.log",
+    }]
+    sync_period = "5s"
+}
+
+loki.source.file "log_scrape" {
+  targets    = local.file_match.local_files.targets
+  forward_to = [loki.process.replacement.receiver]
+  tail_from_end = true
+}
+
+loki.relabel "journal" {
+    forward_to = []
+
+    rule {
+      source_labels = ["__journal__systemd_unit"]
+      target_label  = "unit"
+    }
+
+    rule {
+      source_labels = ["__journal__hostname"]
+      target_label  = "hostname"
+    }
+  }
+
+loki.source.journal "read"  {
+    forward_to    = [loki.write.grafana_loki.receiver]
+    relabel_rules = loki.relabel.journal.rules
+    labels        = {component = "loki.source.journal"}
+}
+
+loki.process "replacement" {
+    forward_to = [loki.write.grafana_loki.receiver]
+    stage.luhn {
+        replacement = "xxxxxxxxxxxxx"
+    }
+  }
+
+loki.write "grafana_loki" {
+  endpoint {
+    url = "http://<ip-adr>/loki/api/v1/push"
+    tenant_id = "<org-id-given-while-creation>"
+    basic_auth {
+      username = "xxx"
+      password = "xxx"
+    }
+  }
+}

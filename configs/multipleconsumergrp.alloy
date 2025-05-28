@@ -1,0 +1,106 @@
+discovery.relabel "logs_integrations_integrations_azure_event_hubs" {
+    targets = []
+
+    rule {
+      source_labels = ["__meta_kafka_group_id"]
+      target_label  = "consumer_group"
+    }
+}
+
+loki.source.azure_event_hubs "alpesh_logs_integrations_integrations_azure_event_hubs" {
+    fully_qualified_namespace = "loki-eventhub-ns.servicebus.windows.net:9093"
+    event_hubs                = ["aks-eventhub"]
+    group_id = "webappactivitylog"
+
+    authentication {
+      mechanism         = "connection_string"
+      connection_string = "Endpoint=sb://loki-eventhub-ns.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey"
+    }
+
+    relabel_rules          = discovery.relabel.logs_integrations_integrations_azure_event_hubs.rules
+    forward_to = [loki.process.process_logs.receiver]
+}
+
+loki.source.azure_event_hubs "palash_logs_integrations_integrations_azure_event_hubs" {
+    fully_qualified_namespace = "loki-eventhub-ns.servicebus.windows.net:9093"
+    event_hubs                = ["aks-eventhub"]
+    group_id = "webapplogs"
+
+    authentication {
+      mechanism         = "connection_string"
+      connection_string = "Endpoint=sb://loki-eventhub-ns.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey"
+    }
+
+    relabel_rules          = discovery.relabel.logs_integrations_integrations_azure_event_hubs.rules
+    forward_to = [loki.process.process_logss.receiver]
+}
+
+loki.process "process_logs" {
+
+    stage.label_drop {
+        values = [ "job", "service_name" ]
+    }
+
+    stage.json {
+        expressions = {
+            "resourceId"    = "resourceId",
+            "operationName" = "operationName",
+            "category"      = "category",
+            "identity"      = "identity.claims.name",
+            "level"      = "level",
+            "name"      = "identity",
+        }
+    }
+    stage.regex {
+       source = "resourceId"
+       expression = "(?i).*/providers/[^/]+/[^/]+/(?P<resource_name>[^/]+)"
+    }
+    stage.regex {
+        source     = "operationName"
+        expression = "(?i).*/(?P<op_short>[^/]+/[^/]+)$"
+    }
+    stage.labels {
+        values = { "category" = "category", "level" = "level", "resourceId" = "resourceId" }
+    }
+
+    stage.template {
+        source = "name"
+        template = "{{ .identity }} has performed {{ .op_short }} on {{ .resource_name }}"
+    }
+
+    stage.output {
+        source = "name"
+    }
+
+    forward_to = [loki.write.grafana_loki.receiver]
+
+}
+
+loki.process "process_logss" {
+  forward_to = [loki.write.grafana_loki.receiver]
+
+   stage.label_drop {
+        values = [ "job", "service_name" ]
+   }
+
+   stage.json {
+       expressions = {
+           "resourceId"    = "resourceId",
+           "category"      = "category",
+           "resultDescription"      = "resultDescription",
+           "level"      = "level",
+       }
+   }
+   stage.labels {
+       values = { "category" = "category", "level" = "level", "resourceId" = "resourceId" }
+   }
+   stage.output {
+       source = "resultDescription"
+   }
+}
+
+  loki.write "grafana_loki" {
+    endpoint {
+      url = "http://localhost:3100/loki/api/v1/push"
+    }
+  }

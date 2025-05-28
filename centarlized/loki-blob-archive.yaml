@@ -1,0 +1,62 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  http_server_read_timeout: 10m
+  http_server_write_timeout: 10m
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  compactor_address: loki:3100
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+memberlist:
+  join_members:
+    - loki:7946
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: azure
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 2160h
+  query_timeout: 10m
+
+compactor:
+  working_directory: /loki/retention
+  #working_directory: /loki
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+
+storage_config:
+  azure:
+    account_name: "<storage-account-name>"
+    account_key: "<account-key>"
+    container_name: "<container-name>"
+    use_managed_identity: false
+    request_timeout: 0
+    endpoint_suffix: blob.core.windows.net
+  tsdb_shipper:
+    active_index_directory: /loki/index
+    cache_location: /loki/index_cache
+    cache_ttl: 1h
+  boltdb_shipper:
+    active_index_directory: /data/index
+    cache_location: /data/boltdb-cache
+  filesystem:
+    directory: /loki/chunks

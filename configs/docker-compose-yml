@@ -1,0 +1,77 @@
+version: '3'
+services:
+  loki:
+    image: grafana/loki:3.0.0
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - lokidata:/loki
+#  alloy:
+ #   image: grafana/alloy:latest
+  #  ports:
+   #   - "12345:12345"
+#    networks:
+ #     - loki
+    #command: --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+#    command: -config.file=/etc/alloy/config.alloy
+    #volumes:
+     # - alloydata:/var/lib/alloy/data
+      #- ./config.alloy:/etc/alloy/config.alloy
+  mimir:
+    image: grafana/mimir:latest
+    ports:
+      - "9009:9009"
+    command: --config.file=/etc/mimir/demo.yaml
+    volumes:
+      - ./mimir-demo.yaml:/etc/mimir/demo.yaml
+
+#  prometheus:
+ #   image: prom/prometheus:v2.47.0
+  #  command:
+   #   - --web.enable-remote-write-receiver
+    #  - --config.file=/etc/prometheus/prometheus.yml
+    #ports:
+     # - "9090:9090"
+
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy
+          orgId: 1
+          url: http://loki:3100
+          basicAuth: false
+          isDefault: false
+          version: 1
+          editable: false
+        EOF
+        /run.sh
+    image: grafana/grafana:11.0.0
+    ports:
+      - "3000:3000"
+
+volumes:
+  lokidata:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: ./volumes/loki
+  alloydata:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: ./volumes/alloy
