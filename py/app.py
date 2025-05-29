@@ -7,11 +7,10 @@ import requests
 
 app = Flask(__name__)
 
-# 🔧 Config - Hardcoded values here
-EVENT_HUB_CONNECTION_STR = "<connection-string>"
-EVENT_HUB_NAME = "<event-hub-name>"
+# 🔧 Config
+EVENT_HUB_CONNECTION_STR = ""
+EVENT_HUB_NAME = "loki-eventhub"
 LOKI_PUSH_URL = "http://localhost:3100/loki/api/v1/push"
-LOKI_LABELS = {"job": "azure", "source": "eventhub"}
 
 # State tracking
 listener_thread = None
@@ -22,7 +21,7 @@ def send_to_loki(log_entries):
 
     for log, labels in log_entries:
         stream = {
-            "stream": {**LOKI_LABELS, **labels},
+            "stream": labels,  # Use only extracted labels
             "values": [[str(int(time.time() * 1e9)), log]]
         }
         streams.append(stream)
@@ -30,7 +29,6 @@ def send_to_loki(log_entries):
     response = requests.post(LOKI_PUSH_URL, json={"streams": streams})
     if not response.ok:
         print("Failed to push to Loki:", response.status_code, response.text)
-
 
 def on_event(partition_context, event):
     try:
@@ -43,25 +41,55 @@ def on_event(partition_context, event):
             parts = resource_id.upper().split("/")
 
             labels = {}
+
             try:
                 if "PROVIDERS" in parts:
                     i = parts.index("PROVIDERS")
-                    labels["resource_type"] = parts[i + 1] if len(parts) > i + 1 else "unknown"
-                    labels["resource_name"] = parts[i + 2] if len(parts) > i + 2 else "unknown"
+                    raw_type = f"{parts[i + 1]}/{parts[i + 2]}" if len(parts) > i + 2 else "UNKNOWN"
+
+                    RESOURCE_TYPE_MAPPING = {
+                        "MICROSOFT.WEB/SITES": "WebApp",
+                        "MICROSOFT.DOCUMENTDB/DATABASEACCOUNTS": "CosmosDB",
+                        "MICROSOFT.INSIGHTS/COMPONENTS": "AppInsights",
+                        "MICROSOFT.KEYVAULT/VAULTS": "KeyVault",
+                        "MICROSOFT.STORAGE/STORAGEACCOUNTS": "StorageAccount",
+                    }
+
+                    friendly_type = RESOURCE_TYPE_MAPPING.get(raw_type, raw_type)
+                    labels["resource_type"] = friendly_type
+                    labels["resource_name"] = parts[i + 3] if len(parts) > i + 3 else "unknown"
+
+                if "level" in record:
+                    labels["LogLevel"] = str(record["level"])
+                if "category" in record:
+                    labels["category"] = str(record["category"])
+
             except Exception as e:
-                print("Error parsing resourceId:", e)
+                print("Error parsing resourceId or labels:", e)
 
             return labels
 
+        def extract_log_line(record, resource_type):
+            if resource_type == "WebApp":
+                return record.get("resultDescription", None)
+            else:
+                return json.dumps(record)
+
         if isinstance(data, dict) and 'records' in data:
             for record in data['records']:
-                log_json = json.dumps(record)
                 labels = extract_labels(record)
-                log_entries.append((log_json, labels))
+                resource_type = labels.get("resource_type", "")
+                log_line = extract_log_line(record, resource_type)
+
+                if log_line:  # Only include if we have something meaningful
+                    log_entries.append((log_line, labels))
         else:
-            log_json = json.dumps(data)
             labels = extract_labels(data)
-            log_entries.append((log_json, labels))
+            resource_type = labels.get("resource_type", "")
+            log_line = extract_log_line(data, resource_type)
+
+            if log_line:
+                log_entries.append((log_line, labels))
 
         if log_entries:
             send_to_loki(log_entries)
@@ -69,7 +97,6 @@ def on_event(partition_context, event):
         partition_context.update_checkpoint(event)
     except Exception as e:
         print("Error processing event:", e)
-
 
 def start_eventhub_listener():
     global listener_active
@@ -117,5 +144,5 @@ if __name__ == "__main__":
     listener_thread = threading.Thread(target=start_eventhub_listener, daemon=True)
     listener_thread.start()
     print("Background Event Hub listener started automatically.")
-    
+
     app.run(host="0.0.0.0", port=5000)
